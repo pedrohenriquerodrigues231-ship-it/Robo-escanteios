@@ -1,37 +1,40 @@
 import os
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
 import requests
 import time
 
-# Configurações com suas chaves do Telegram
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-
 def enviar_alerta_telegram(mensagem):
+    if not TELEGRAM_TOKEN or not CHAT_ID:
+        return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": mensagem, "parse_mode": "Markdown"}
     try:
         requests.post(url, json=payload)
     except Exception as e:
-        print(f"Erro ao enviar mensagem: {e}")
-
+        print(f"Erro: {e}")
 
 def checar_jogos():
-    # Exemplo de lógica de verificação
-    # O bot irá rodar em segundo plano e notificar oportunidades
-    mensagem = (
-        "🚨 *SINAL DETECTADO: CANTOS 0-10'* 🚨\n\n"
-        "⚽ *Jogo Analisado*\n"
-        "📊 *Estratégia:* Over 0.5 Cantos nos Primeiros 10 Minutos\n"
-        "💰 *Entrada:* 1 Stake (R$ 2,50)\n"
-        "🎯 *Odd mínima:* 1.60\n\n"
-        "Abra a Bet365 e confira a intensidade do jogo!"
-    )
-    enviar_alerta_telegram(mensagem)
-
-
-if __name__ == "__main__":
     enviar_alerta_telegram("✅ *Robô de Cantos Iniciado com Sucesso!*")
     while True:
-        # Checa a cada 5 minutos
         time.sleep(300)
+
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Robo Ativo!")
+
+def run_http_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+if __name__ == "__main__":
+    t = threading.Thread(target=run_http_server)
+    t.daemon = True
+    t.start()
+    checar_jogos()
