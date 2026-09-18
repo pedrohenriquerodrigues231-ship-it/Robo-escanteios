@@ -1,11 +1,16 @@
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import time
 import threading
 import requests
-import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+API_KEY = os.getenv("RAPIDAPI_KEY")
+
+headers_api = {
+    "X-Auth-Token": API_KEY
+}
 
 def enviar_alerta_telegram(mensagem):
     if not TELEGRAM_TOKEN or not CHAT_ID:
@@ -15,11 +20,40 @@ def enviar_alerta_telegram(mensagem):
     try:
         requests.post(url, json=payload)
     except Exception as e:
-        print(f"Erro: {e}")
+        print(f"Erro no Telegram: {e}")
 
-def checar_jogos():
-    enviar_alerta_telegram("✅ *Robô de Cantos Iniciado com Sucesso!*")
+def buscar_e_analisar_jogos():
+    if not API_KEY:
+        print("Chave de API nao configurada.")
+        return
+
+    url = "https://api.football-data.org/v4/matches"
+    try:
+        response = requests.get(url, headers=headers_api)
+        data = response.json()
+        
+        matches = data.get("matches", [])
+        for match in matches:
+            if match.get("status") == "IN_PLAY":
+                casa = match.get("homeTeam", {}).get("name")
+                fora = match.get("awayTeam", {}).get("name")
+                
+                msg = (
+                    f"🚨 *SINAL DETETADO - ESCANTEIOS 10 MIN* 🚨\n\n"
+                    f"⚽ *Jogo:* {casa} x {fora}\n"
+                    f"🎯 *Mercado:* Over 0.5 Cantos (10 Min)\n"
+                    f"💰 *Stake Recomendada:* 1 Unidade (R$ 2,50)\n"
+                    f"⚠️ *Odd Minima:* 1.60\n\n"
+                    f"📲 *Entre na bet365 e confirme a entrada!*"
+                )
+                enviar_alerta_telegram(msg)
+    except Exception as e:
+        print(f"Erro na consulta de jogos: {e}")
+
+def checar_loop():
+    enviar_alerta_telegram("🚀 *Robô de Sinais Automáticos Ativado com Sucesso!*")
     while True:
+        buscar_e_analisar_jogos()
         time.sleep(300)
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -37,4 +71,4 @@ if __name__ == "__main__":
     t = threading.Thread(target=run_http_server)
     t.daemon = True
     t.start()
-    checar_jogos()
+    checar_loop()
